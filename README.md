@@ -9,3 +9,15 @@ Last week, we implemented the serial code for KMP and ran it on a basic dataset,
 * Feiran Wang(feiranw2)
 * Aryan Raja(aryankr2)
 * Xingjian Ye(xye16)
+
+
+Feedback 1:
+Hi Feiran, Xingjian and Aryan,
+
+Thank you for your interest! Previously we worked on accelerating regular expression matching as the ECE 508 project when I took this course. You can check https://uillinoisedu-my.sharepoint.com/:w:/g/personal/kunwu2_illinois_edu/Ea1Df63NPWdMh_N-t9y2W9wBFHEWxxEcq6YZdOyzjCPozw?e=ynnKRG to find more elaboration about the motivation behind it.
+
+KMP is aligned with this direction and I believe it is an essential workload. techniques used in implementing BFS could be relevant as it is dealing with transitions. You can check https://algs4.cs.princeton.edu/lectures/keynote/53SubstringSearch-2x2.pdf, e.g., page 20, for illustration to get better intuition of the KMP algorithm.
+
+I believe one important application of string operations are in datatable. For example, log anomaly detection can be seen as identifying the problematic row where each row in the data table is a log entry from the system. Dealing with a datatable may provide massive input and a dimension of parallelism. You can get some dataset to work on from repositories like logpai/loghub: A large collection of system log datasets for log analysis research (github.com).
+
+These are the thoughts I have for now. Please feel free to ask us any questions.
