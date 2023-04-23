@@ -37,6 +37,7 @@ int KMP_search(
                     break;
                 }
             }
+            j = fail[j];
         }
         else {
             j = fail[j];
