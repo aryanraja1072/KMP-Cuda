@@ -23,7 +23,13 @@ std::string read_fasta_data(const std::string &filename)
             continue;
         }
 
-        data += line;
+        for (char &c : line)
+        {
+            if (c != 'N')
+            {
+                data += c;
+            }
+        }
     }
 
     file.close();
