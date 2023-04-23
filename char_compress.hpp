@@ -8,4 +8,4 @@ enum class Gene : char {
      G = 0b00000011,
 };
 
-inline char get(const char *arr, int idx);
+char get(const char *arr, int idx);
