@@ -3,9 +3,11 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <algorithm>
 
 std::string read_fasta_data(const std::string &filename)
 {
+    std::cout << "Reading file: " << filename << std::endl;
     std::ifstream file(filename, std::ios::in);
     std::string data;
 
@@ -40,19 +42,19 @@ std::string load_data(size_t length)
 {
     std::string data;
     data.reserve(length);
-
-    for (const auto &entry : std::filesystem::directory_iterator("."))
+    while (data.size() < length)
     {
-        if (entry.path().extension() == ".fasta")
+        for (const auto &entry : std::filesystem::directory_iterator("."))
         {
-            std::string file_data = read_fasta_data(entry.path().string());
-
-            size_t remaining_length = length - data.size();
-            data.append(file_data, 0, remaining_length);
-
-            if (data.size() >= length)
+            if (entry.path().extension() == ".fasta")
             {
-                break;
+                std::string file_data = read_fasta_data(entry.path().string());
+                size_t remaining_length = length - data.size();
+                data.append(file_data, 0, remaining_length);
+                if (data.size() >= length)
+                {
+                    break;
+                }
             }
         }
     }
@@ -84,7 +86,6 @@ int main(int argc, char *argv[])
         try
         {
             length = std::stoul(argv[1]);
-            std::cout << "Length: " << length << std::endl;
         }
         catch (const std::invalid_argument &e)
         {
@@ -101,13 +102,14 @@ int main(int argc, char *argv[])
     if (argc == 3)
     {
         output_filename = argv[2];
-        std::cout << "Output filename: " << output_filename << std::endl;
     }
+    std::cout << "Length: " << length << std::endl;
+    std::cout << "Output file: " << output_filename << std::endl;
 
     std::string data = load_data(length);
     write_data_to_file(output_filename, data);
 
     std::cout << "Data saved to: " << output_filename << std::endl;
-
+    std::cout << "File size: " << std::filesystem::file_size(output_filename) / 1000000.0 << " MB" << std::endl;
     return 0;
 }
