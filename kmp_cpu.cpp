@@ -36,8 +36,8 @@ int KMP_search(
                 if (output_cnt == max_output_cnt) {
                     break;
                 }
+                j = fail[j];
             }
-            j = fail[j];
         }
         else {
             j = fail[j];
