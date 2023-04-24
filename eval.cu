@@ -78,7 +78,7 @@ int compare_result(
     std::sort(sorted_ref_output.begin(), sorted_ref_output.begin() + ref_cnt);
     for (int i = 0; i < cnt; i++) {
         if (sorted_output[i] != sorted_ref_output[i]) {
-            printf("Mismatch at the %d-th occurrence, %d (tested) != %d (ref)!\n", i, cnt, ref_cnt);
+            printf("Mismatch at the %d-th occurrence, %d (tested) != %d (ref)!\n", i, sorted_output[i], sorted_ref_output[i]);
             return -1;
         }
     }
