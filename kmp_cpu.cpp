@@ -22,7 +22,7 @@ void get_fail(const char *pattern, int16_t pattern_length, int16_t *fail) {
 
 int KMP_search(
     const char *text, int text_length, const char *pattern, int16_t pattern_length,
-    int16_t *output, int max_output_cnt, int16_t *fail
+    int *output, int max_output_cnt, int16_t *fail
 ) {
     get_fail(pattern, pattern_length, fail);
     int i = 0, j = 0;
@@ -36,8 +36,8 @@ int KMP_search(
                 if (output_cnt == max_output_cnt) {
                     break;
                 }
+                j = fail[j];
             }
-            j = fail[j];
         }
         else {
             j = fail[j];
