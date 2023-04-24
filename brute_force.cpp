@@ -3,7 +3,7 @@
 
 int brute_force_search(
     const char *text, int text_length, const char *pattern, int16_t pattern_length,
-    int16_t *output, int max_output_cnt, int16_t *fail
+    int *output, int max_output_cnt, int16_t *fail
 ) {
     int output_cnt = 0;
     for (int i = 0; i < text_length - pattern_length; i++) {

@@ -10,5 +10,5 @@ void get_fail(const char *pattern, int16_t pattern_length, int16_t *fail);
 // Return the number of occurrences of the pattern.
 int KMP_search(
     const char *text, int text_length, const char *pattern, int16_t pattern_length,
-    int16_t *output, int max_output_cnt, int16_t *fail
+    int *output, int max_output_cnt, int16_t *fail
 );

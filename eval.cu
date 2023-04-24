@@ -43,7 +43,7 @@ void print_text_or_pattern(const std::string &text_or_pattern, int length) {
     printf(")");
 }
 
-void print_output(std::vector<int16_t> &output, int output_cnt) {
+void print_output(std::vector<int> &output, int output_cnt) {
     printf("%d matches found\n", output_cnt);
     if (output_cnt > 0) {
         printf("matching at: ");
@@ -56,8 +56,8 @@ void print_output(std::vector<int16_t> &output, int output_cnt) {
 
 // Returns 0 for success, -1 for failure.
 int compare_result(
-    const std::vector<int16_t> &output, int cnt,
-    const std::vector<int16_t> &ref_output, int ref_cnt,
+    const std::vector<int> &output, int cnt,
+    const std::vector<int> &ref_output, int ref_cnt,
     int max_output_cnt
 ) {
     if (cnt != ref_cnt) {
@@ -72,9 +72,9 @@ int compare_result(
         return 0;
     }
 
-    std::vector<int16_t> sorted_output = output;
+    std::vector<int> sorted_output = output;
     std::sort(sorted_output.begin(), sorted_output.begin() + cnt);
-    std::vector<int16_t> sorted_ref_output = ref_output;
+    std::vector<int> sorted_ref_output = ref_output;
     std::sort(sorted_ref_output.begin(), sorted_ref_output.begin() + ref_cnt);
     for (int i = 0; i < cnt; i++) {
         if (sorted_output[i] != sorted_ref_output[i]) {
@@ -104,7 +104,7 @@ int eval(
         printf("\n");
     }
 
-    std::vector<int16_t> output(max_output_cnt);
+    std::vector<int> output(max_output_cnt);
     std::vector<int16_t> fail(pattern_length + 1);
 
     auto start = std::chrono::steady_clock::now();
@@ -122,7 +122,7 @@ int eval(
     }
 
     if (reference_function != nullptr) {
-        std::vector<int16_t> ref_output(max_output_cnt);
+        std::vector<int> ref_output(max_output_cnt);
 
         auto start = std::chrono::steady_clock::now();
         int ref_cnt = reference_function(
