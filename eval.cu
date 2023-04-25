@@ -8,6 +8,7 @@
 #include "char_compress.hpp"
 #include "brute_force.hpp"
 #include "kmp_cpu.hpp"
+#include "kmp_shmem.cuh"
 
 using StringMatchingFunction = decltype(brute_force_search);
 
@@ -185,7 +186,9 @@ int eval_with_string_data(
 }
 
 int main() {
-    return eval_with_random_input(
-        5000, 5, KMP_search, brute_force_search, /*verbose=*/false
-    );
+    for (int i = 0; i < 6; i++) {
+        eval_with_random_input(
+            500000000, 12, KMP_search_shmem, nullptr, /*verbose=*/false
+        );
+    }
 }
