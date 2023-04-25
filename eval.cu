@@ -150,18 +150,23 @@ int eval_with_random_input(
     int text_length, int pattern_length,
     StringMatchingFunction search_function,
     StringMatchingFunction reference_function=nullptr,
-    bool verbose=false, int max_output_cnt=100
+    bool verbose=false, int run_cnt=1, int max_output_cnt=100
 ) {
     std::string text((text_length-1)/4+1, '\0');
     std::string pattern((pattern_length-1)/4+1, '\0');
+    for (int i = 0; i < run_cnt; i++) {
+        generate_random_data(&text[0], text_length);
+        generate_random_data(&pattern[0], pattern_length);
 
-    generate_random_data(&text[0], text_length);
-    generate_random_data(&pattern[0], pattern_length);
-
-    return eval(
-        text, text_length, pattern, pattern_length,
-        search_function, reference_function, verbose, max_output_cnt
-    );
+        int retval = eval(
+            text, text_length, pattern, pattern_length,
+            search_function, reference_function, verbose, max_output_cnt
+        );
+        if (retval == -1) {
+            return -1;
+        }
+    }
+    return 0;
 }
 
 // Returns 0 for success, -1 for failure.
@@ -169,7 +174,7 @@ int eval_with_string_data(
     const char *text, const char *pattern,
     StringMatchingFunction search_function,
     StringMatchingFunction reference_function=nullptr,
-    bool verbose=false, int max_output_cnt=100
+    bool verbose=false, int run_cnt=1, int max_output_cnt=100
 ) {
     int text_length = strlen(text);
     int pattern_length = strlen(pattern);
@@ -179,11 +184,17 @@ int eval_with_string_data(
     char_compress(text, text_length, &compressed_text[0]);
     char_compress(pattern, pattern_length, &compressed_pattern[0]);
 
-    return eval(
-        compressed_text, text_length,
-        compressed_pattern, pattern_length,
-        search_function, reference_function, verbose, max_output_cnt
-    );
+    for (int i =0; i < run_cnt; i++) {
+        int retval = eval(
+            compressed_text, text_length,
+            compressed_pattern, pattern_length,
+            search_function, reference_function, verbose, max_output_cnt
+        );
+        if (retval == -1) {
+            return -1;
+        }
+    }
+    return 0;
 }
 
 // Note: you should pre-compress the text file into a binary file (using
@@ -192,7 +203,7 @@ int eval_with_dataset_file(
     const char *filename, int text_length, int pattern_length,
     StringMatchingFunction search_function,
     StringMatchingFunction reference_function=nullptr,
-    bool verbose=false, int max_output_cnt=100
+    bool verbose=false, int run_cnt=1, int max_output_cnt=100
 ) {
     std::string compressed_text((text_length-1)/4+1, '\0');
 
@@ -212,21 +223,27 @@ int eval_with_dataset_file(
         return 1;
     }
 
-    // Generate random pattern.
     std::string compressed_pattern((pattern_length-1)/4+1, '\0');
-    generate_random_data(&compressed_pattern[0], pattern_length);
+    for (int i = 0; i < run_cnt; i++) {
+        generate_random_data(&compressed_pattern[0], pattern_length);
 
-    return eval(
-        compressed_text, text_length,
-        compressed_pattern, pattern_length,
-        search_function, reference_function, verbose, max_output_cnt
-    );
+        int retval = eval(
+            compressed_text, text_length,
+            compressed_pattern, pattern_length,
+            search_function, reference_function, verbose, max_output_cnt
+        );
+        if (retval == -1) {
+            return -1;
+        }
+    }
+    return 0;
 }
 
 int main() {
-    for (int i = 0; i < 6; i++) {
-        eval_with_random_input(
-            500000000, 12, KMP_search_shmem, nullptr, /*verbose=*/false
-        );
-    }
+    // Note: for timing GPU kernel, the first few runs should be ignored since
+    // there is JIT compiling overhead.
+    eval_with_dataset_file(
+        "your_data_file.bin", 1000000000, 13, KMP_search_shmem, nullptr, /*verbose*/false, 6
+    );
+    return 0;
 }
