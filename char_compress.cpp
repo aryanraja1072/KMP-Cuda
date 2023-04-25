@@ -1,6 +1,10 @@
 #include "char_compress.hpp"
 
+#include <algorithm>
+
 void char_compress(const char *text, int text_length, char * text_com) {
+    std::fill(text_com, text_com+(text_length+3)/4+1, '\0');
+
     for (int idx = 0; idx < text_length; idx++) {
         int i = idx / 4;
         int j = idx % 4;
