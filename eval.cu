@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstring>
 #include <chrono>
+#include <fstream>
 #include <string>
 #include <random>
 #include <vector>
@@ -177,6 +178,43 @@ int eval_with_string_data(
 
     char_compress(text, text_length, &compressed_text[0]);
     char_compress(pattern, pattern_length, &compressed_pattern[0]);
+
+    return eval(
+        compressed_text, text_length,
+        compressed_pattern, pattern_length,
+        search_function, reference_function, verbose, max_output_cnt
+    );
+}
+
+// Note: you should pre-compress the text file into a binary file (using
+// char_compress), and use that binary file as the filename.
+int eval_with_dataset_file(
+    const char *filename, int text_length, int pattern_length,
+    StringMatchingFunction search_function,
+    StringMatchingFunction reference_function=nullptr,
+    bool verbose=false, int max_output_cnt=100
+) {
+    std::string compressed_text((text_length-1)/4+1, '\0');
+
+    std::ifstream in_file(filename, std::ios::binary);
+    if (!in_file) {
+        printf("Error opening file %s\n", filename);
+        return 1;
+    }
+    in_file.read(&compressed_text[0], compressed_text.size());
+
+    int actual_bytes_read = in_file.gcount();
+    if (actual_bytes_read < compressed_text.size()) {
+        printf(
+            "Not enough bytes in the data file, expected %d bytes but only got %d bytes\n",
+            static_cast<int>(compressed_text.size()), actual_bytes_read
+        );
+        return 1;
+    }
+
+    // Generate random pattern.
+    std::string compressed_pattern((pattern_length-1)/4+1, '\0');
+    generate_random_data(&compressed_pattern[0], pattern_length);
 
     return eval(
         compressed_text, text_length,
