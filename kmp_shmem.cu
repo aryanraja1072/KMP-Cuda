@@ -13,6 +13,7 @@ static constexpr int block_size = 512;
 static const int MAX_PATTERN_LENGTH = 100;
 
 __constant__ int16_t constant_fail[MAX_PATTERN_LENGTH + 1];
+__constant__ char constant_pattern[MAX_PATTERN_LENGTH];
 
 static __host__ __device__ int ceil_div(int x, int y)
 {
@@ -33,7 +34,7 @@ static __host__ __device__ inline char get(const char *arr, IdxType idx)
 
 __device__ void KMP_search(
     const char *text, int text_start, int text_end,
-    const char *pattern, int16_t pattern_length,
+    int16_t pattern_length,
     int *shared_output, int *shared_output_cnt,
     int *global_output, int *global_output_cnt, int max_output_cnt)
 {
@@ -41,7 +42,7 @@ __device__ void KMP_search(
     int16_t j = 0;
     while (i < text_end)
     {
-        if (get(text, i) == get(pattern, j))
+        if (get(text, i) == get(constant_pattern, j))
         {
             i++;
             j++;
@@ -79,7 +80,7 @@ __device__ void KMP_search(
 }
 
 __global__ void KMP_search_shmem_kernel(
-    const char *text, int text_length, const char *pattern, int16_t pattern_length,
+    const char *text, int text_length, int16_t pattern_length,
     int *output, int *output_cnt, int max_output_cnt)
 {
     extern __shared__ char shared_memory[];
@@ -88,7 +89,6 @@ __global__ void KMP_search_shmem_kernel(
         shared_memory + sizeof(int) * output_cache_size_per_block);
     int *shared_global_output_start = reinterpret_cast<int *>(
         shared_memory + sizeof(int) * output_cache_size_per_block + sizeof(int));
-    char *shared_pattern = (shared_memory + sizeof(int) * output_cache_size_per_block + 2 * sizeof(int) + sizeof(int16_t) * (pattern_length + 1));
 
     int global_index = blockIdx.x * blockDim.x + threadIdx.x;
     int match_start = (match_length_per_thread - (pattern_length - 1)) * global_index;
@@ -97,10 +97,6 @@ __global__ void KMP_search_shmem_kernel(
     match_end = min(match_end, text_length);
 
     // Initialize shared memory.
-    for (int i = threadIdx.x; i < pattern_length; i += blockDim.x)
-    {
-        shared_pattern[i] = pattern[i];
-    }
     if (threadIdx.x == 0)
     {
         *shared_output_cnt = 0;
@@ -108,7 +104,7 @@ __global__ void KMP_search_shmem_kernel(
     __syncthreads();
 
     KMP_search(
-        text, match_start, match_end, shared_pattern, pattern_length,
+        text, match_start, match_end, pattern_length,
         shared_output, shared_output_cnt, output, output_cnt, max_output_cnt);
 
     // Write the outputs to the global memory.
@@ -148,12 +144,10 @@ int KMP_search_shmem(
 
     timer_start("Allocating GPU memory");
     char *text_device;
-    char *pattern_device;
     int *output_device;
 
     int *output_cnt_device;
     THROW_IF_ERROR(cudaMalloc((void **)&text_device, text_size));
-    THROW_IF_ERROR(cudaMalloc((void **)&pattern_device, pattern_size));
     THROW_IF_ERROR(cudaMalloc((void **)&output_device, output_size));
     THROW_IF_ERROR(cudaMalloc((void **)&output_cnt_device, sizeof(int)));
     timer_stop();
@@ -164,16 +158,16 @@ int KMP_search_shmem(
 
     timer_start("Copying inputs to the GPU");
     THROW_IF_ERROR(cudaMemcpy(text_device, text, text_size, cudaMemcpyHostToDevice));
-    THROW_IF_ERROR(cudaMemcpy(pattern_device, pattern, pattern_size, cudaMemcpyHostToDevice));
+    THROW_IF_ERROR(cudaMemcpyToSymbol(constant_pattern, pattern, pattern_size));
     THROW_IF_ERROR(cudaMemcpyToSymbol(constant_fail, fail, fail_size));
     THROW_IF_ERROR(cudaMemset(output_cnt_device, 0, sizeof(int)));
     timer_stop();
 
     // Prepare to launch the kernel.
     int shared_memory_size =
-        pattern_size + sizeof(int) * output_cache_size_per_block // per block output cache.
-        + sizeof(int)                                            // per block output counter.
-        + sizeof(int);                                           // per block output start index.
+        sizeof(int) * output_cache_size_per_block // per block output cache.
+        + sizeof(int)                             // per block output counter.
+        + sizeof(int);                            // per block output start index.
 
     int num_blocks = ceil_div(
         text_length - (pattern_length - 1),
@@ -181,7 +175,7 @@ int KMP_search_shmem(
 
     timer_start("Performing KMP on the GPU");
     KMP_search_shmem_kernel<<<num_blocks, block_size, shared_memory_size>>>(
-        text_device, text_length, pattern_device, pattern_length,
+        text_device, text_length, pattern_length,
         output_device, output_cnt_device, max_output_cnt);
     THROW_IF_ERROR(cudaDeviceSynchronize());
     timer_stop();
@@ -196,7 +190,6 @@ int KMP_search_shmem(
 
     timer_start("Freeing GPU memory");
     cudaFree(text_device);
-    cudaFree(pattern_device);
     cudaFree(output_device);
     cudaFree(output_cnt_device);
     timer_stop();
