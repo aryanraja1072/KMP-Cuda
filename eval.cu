@@ -9,6 +9,7 @@
 #include "char_compress.hpp"
 #include "brute_force.hpp"
 #include "kmp_cpu.hpp"
+#include "state_machine_cpu.hpp"
 #include "kmp_shmem.cuh"
 
 using StringMatchingFunction = decltype(brute_force_search);
