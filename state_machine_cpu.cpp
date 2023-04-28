@@ -37,13 +37,13 @@ int state_machine_search(
     for (int i = 0; i < text_length; i += 4) {
         char text_packed = text[i >> 2];
         for (int ii = 0; ii < 4 && i + ii < text_length; ii++, text_packed >>= 2) {
+            curr_state = state_machine[curr_state][text_packed & 0x3];
             if (curr_state == pattern_length) {
                 output[output_cnt++] = i + ii - pattern_length;
                 if (output_cnt == max_output_cnt) {
                     goto end;  // A simple way to break double loop.
                 }
             }
-            curr_state = state_machine[curr_state][text_packed & 0x3];
         }
     }
 
