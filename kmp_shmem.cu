@@ -4,11 +4,9 @@
 #include "kmp_cpu.hpp"
 
 // This value should be several times larger than pattern_length.
-static constexpr int match_length_per_thread = 1000;
+static constexpr int match_length_per_thread = 20000;
 
-static constexpr int output_cache_size_per_block = 20;
-
-static constexpr int block_size = 512;
+static constexpr int block_size = 128;
 
 static __host__ __device__ int ceil_div(int x, int y) {
     return (x - 1) / y + 1;
@@ -27,8 +25,7 @@ static __host__ __device__ inline char get(const char *arr, IdxType idx) {
 __device__ void KMP_search(
     const char *text, int text_start, int text_end,
     const char *pattern, int16_t pattern_length,
-    int *shared_output, int *shared_output_cnt,
-    int *global_output, int *global_output_cnt, int max_output_cnt,
+    int *output, int *output_cnt, int max_output_cnt,
     int16_t *fail
 ) {
     int i = text_start;
@@ -37,18 +34,13 @@ __device__ void KMP_search(
         if (get(text, i) == get(pattern, j)) {
             i++; j++;
             if (j == pattern_length) {
-                // Occurrence found. Try write the output to the shared memory.
-                int output_idx = atomicAdd(shared_output_cnt, 1);
-                if (output_idx < output_cache_size_per_block) {
-                    shared_output[output_idx] = i - j;
+                // Occurrence found. Write to the global memory.
+                int output_idx = atomicAdd(output_cnt, 1);
+                if (output_idx < max_output_cnt) {
+                    output[output_idx] = i - j;
                 }
                 else {
-                    // Write to global memory.
-                    int output_idx = atomicAdd(global_output_cnt, 1);
-                    if (output_idx < max_output_cnt) {
-                        global_output[output_idx] = i - j;
-                    }
-                    else break;
+                    break;
                 }
                 j = fail[j];
             }
@@ -67,25 +59,9 @@ __global__ void KMP_search_shmem_kernel(
     int *output, int *output_cnt, int max_output_cnt, int16_t *fail
 ) {
     extern __shared__ char shared_memory[];
-    int *shared_output = reinterpret_cast<int *>(shared_memory);
-    int *shared_output_cnt = reinterpret_cast<int *>(
-        shared_memory
-        + sizeof(int) * output_cache_size_per_block
-    );
-    int *shared_global_output_start = reinterpret_cast<int *>(
-        shared_memory
-        + sizeof(int) * output_cache_size_per_block
-        + sizeof(int)
-    );
-    int16_t *shared_fail = reinterpret_cast<int16_t *>(
-        shared_memory
-        + sizeof(int) * output_cache_size_per_block
-        + 2 * sizeof(int)
-    );
+    int16_t *shared_fail = reinterpret_cast<int16_t *>(shared_memory);
     char *shared_pattern = (
         shared_memory
-        + sizeof(int) * output_cache_size_per_block
-        + 2 * sizeof(int)
         + sizeof(int16_t) * (pattern_length + 1)
     );
 
@@ -102,32 +78,12 @@ __global__ void KMP_search_shmem_kernel(
     for (int i = threadIdx.x; i <= pattern_length; i += blockDim.x) {
         shared_fail[i] = fail[i];
     }
-    if (threadIdx.x == 0) {
-        *shared_output_cnt = 0;
-    }
     __syncthreads();
 
     KMP_search(
         text, match_start, match_end, shared_pattern, pattern_length,
-        shared_output, shared_output_cnt, output, output_cnt, max_output_cnt,
-        shared_fail
+        output, output_cnt, max_output_cnt, shared_fail
     );
-
-    // Write the outputs to the global memory.
-    int block_output_cnt = min(*shared_output_cnt, output_cache_size_per_block);
-    if (threadIdx.x == 0) {
-        *shared_global_output_start = atomicAdd(output_cnt, block_output_cnt);
-    }
-    __syncthreads();
-
-    int global_output_start = *shared_global_output_start;
-    for (
-        int i = threadIdx.x;
-        i < block_output_cnt && i + global_output_start < max_output_cnt;
-        i += blockDim.x
-    ) {
-        output[i + global_output_start] = shared_output[i];
-    }
 }
 
 int KMP_search_shmem(
@@ -171,11 +127,7 @@ int KMP_search_shmem(
     timer_stop();
 
     // Prepare to launch the kernel.
-    int shared_memory_size =
-        pattern_size + fail_size
-        + sizeof(int) * output_cache_size_per_block  // per block output cache.
-        + sizeof(int)  // per block output counter.
-        + sizeof(int);  // per block output start index.
+    int shared_memory_size = pattern_size + fail_size;
 
     int num_blocks = ceil_div(
         text_length - (pattern_length - 1),
