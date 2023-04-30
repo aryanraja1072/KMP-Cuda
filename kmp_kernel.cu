@@ -52,8 +52,8 @@ __device__ void KMP_search(
                 }
                 else
                     break;
+                j = fail[j];
             }
-            j = fail[j];
         }
         else
         {

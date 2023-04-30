@@ -53,8 +53,8 @@ __device__ void KMP_search(
                 }
                 else
                     break;
+                j = fail_const[j];
             }
-            j = fail_const[j];
         }
         else
         {
