@@ -10,6 +10,7 @@
 #include "brute_force.hpp"
 #include "kmp_cpu.hpp"
 #include "kmp_shmem.cuh"
+#include "kmp_kernel.cuh"
 
 using StringMatchingFunction = decltype(brute_force_search);
 
