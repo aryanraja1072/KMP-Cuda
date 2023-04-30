@@ -11,6 +11,7 @@
 #include "kmp_cpu.hpp"
 #include "kmp_shmem.cuh"
 #include "kmp_kernel.cuh"
+#include "kmp_kernel_const.cuh"
 
 using StringMatchingFunction = decltype(brute_force_search);
 
@@ -266,6 +267,6 @@ int main()
     // Note: for timing GPU kernel, the first few runs should be ignored since
     // there is JIT compiling overhead.
     eval_with_dataset_file(
-        "data.bin", 1000000000, 13, KMP_search_shmem, nullptr, /*verbose*/ false, 6);
+        "data.bin", 1000000000, 13, KMP_search_basic_const, nullptr, /*verbose*/ false, 6);
     return 0;
 }
