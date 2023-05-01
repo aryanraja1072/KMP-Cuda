@@ -6,7 +6,7 @@
 // This value should be several times larger than pattern_length.
 static constexpr int match_length_per_thread = 20000;
 
-static constexpr int block_size = 128;
+static constexpr int block_size = 64;
 
 static __host__ __device__ int ceil_div(int x, int y) {
     return (x - 1) / y + 1;
