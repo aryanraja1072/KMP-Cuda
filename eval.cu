@@ -11,6 +11,7 @@
 #include "kmp_cpu.hpp"
 #include "state_machine_cpu.hpp"
 #include "kmp_shmem.cuh"
+#include "state_machine_shmem.cuh"
 
 using StringMatchingFunction = decltype(brute_force_search);
 
@@ -244,7 +245,7 @@ int main() {
     // Note: for timing GPU kernel, the first few runs should be ignored since
     // there is JIT compiling overhead.
     eval_with_dataset_file(
-        "your_data_file.bin", 1000000000, 13, KMP_search_shmem, nullptr, /*verbose*/false, 6
+        "data_432516.bin", 1000000000, 13, state_machine_search_shmem, nullptr, /*verbose*/false, 6
     );
     return 0;
 }
