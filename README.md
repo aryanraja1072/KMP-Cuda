@@ -1,5 +1,5 @@
 # KMP-Cuda
-Status( May 8, 2023):
+# Status( May 8, 2023):
 * State machine kernel updated on branch xye16/state_machine.
 * With 1G text, the runtime of the kernel is only ~2.75ms, while the total time including cudaMemcpy is ~45ms. 
 * Next steps, experiment with parameters to get the optimal performance.
