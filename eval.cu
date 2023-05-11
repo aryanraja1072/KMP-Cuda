@@ -12,6 +12,7 @@
 #include "state_machine_cpu.hpp"
 #include "kmp_shmem.cuh"
 #include "state_machine_shmem.cuh"
+#include "state_machine_coalesced.cuh"
 
 using StringMatchingFunction = decltype(brute_force_search);
 

@@ -14,7 +14,7 @@ commands:
       /bin/sh -c "
       cp -r /src .
       && cd ./src
-      && nvcc -std=c++14 -O3 -o eval ./eval.cu ./kmp_cpu.cpp ./state_machine_cpu.cpp ./char_compress.cpp ./brute_force.cpp ./kmp_shmem.cu ./state_machine_shmem.cu
+      && nvcc -std=c++14 -O3 -o eval ./eval.cu ./kmp_cpu.cpp ./state_machine_cpu.cpp ./char_compress.cpp ./brute_force.cpp ./kmp_shmem.cu ./state_machine_shmem.cu ./state_machine_coalesced.cu
       && ./eval
       "
     # Replace the `& ./eval` line with the following line to enable nsight
