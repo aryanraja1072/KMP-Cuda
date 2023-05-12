@@ -57,7 +57,35 @@ void print_text_or_pattern(const std::string &text_or_pattern, int length)
     }
     printf(")");
 }
-
+void print_text_or_pattern(const char *text_or_pattern, int length)
+{
+    for (int i = 0; i < length; i++)
+    {
+        char char_compressed = get(text_or_pattern, i);
+        if (char_compressed == static_cast<char>(Gene::A))
+        {
+            printf("A");
+        }
+        else if (char_compressed == static_cast<char>(Gene::T))
+        {
+            printf("T");
+        }
+        else if (char_compressed == static_cast<char>(Gene::C))
+        {
+            printf("C");
+        }
+        else if (char_compressed == static_cast<char>(Gene::G))
+        {
+            printf("G");
+        }
+    }
+    printf(" (hex = ");
+    for (int i = 0; 4 * i < length; i++)
+    {
+        printf("%02hhx", text_or_pattern[i]);
+    }
+    printf(")");
+}
 void print_output(std::vector<int> &output, int output_cnt)
 {
     printf("%d matches found\n", output_cnt);
@@ -109,7 +137,7 @@ int compare_result(
 
 // Returns 0 for success, -1 for failure.
 int eval(
-    const std::string &text, int text_length,
+    const char *text, int text_length,
     std::string &pattern, int16_t pattern_length,
     StringMatchingFunction search_function,
     StringMatchingFunction reference_function = nullptr,
@@ -131,7 +159,7 @@ int eval(
 
     auto start = std::chrono::steady_clock::now();
     int cnt = search_function(
-        text.data(), text_length, pattern.data(), pattern_length,
+        text, text_length, pattern.data(), pattern_length,
         output.data(), output.size(), fail.data());
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<double, std::milli> diff = end - start;
@@ -149,7 +177,7 @@ int eval(
 
         auto start = std::chrono::steady_clock::now();
         int ref_cnt = reference_function(
-            text.data(), text_length, pattern.data(), pattern_length,
+            text, text_length, pattern.data(), pattern_length,
             ref_output.data(), ref_output.size(), fail.data());
         auto end = std::chrono::steady_clock::now();
         std::chrono::duration<double, std::milli> diff = end - start;
@@ -167,58 +195,58 @@ int eval(
 }
 
 // Returns 0 for success, -1 for failure.
-int eval_with_random_input(
-    int text_length, int pattern_length,
-    StringMatchingFunction search_function,
-    StringMatchingFunction reference_function = nullptr,
-    bool verbose = false, int run_cnt = 1, int max_output_cnt = 100)
-{
-    std::string text((text_length - 1) / 4 + 1, '\0');
-    std::string pattern((pattern_length - 1) / 4 + 1, '\0');
-    for (int i = 0; i < run_cnt; i++)
-    {
-        generate_random_data(&text[0], text_length);
-        generate_random_data(&pattern[0], pattern_length);
+// int eval_with_random_input(
+//     int text_length, int pattern_length,
+//     StringMatchingFunction search_function,
+//     StringMatchingFunction reference_function = nullptr,
+//     bool verbose = false, int run_cnt = 1, int max_output_cnt = 100)
+// {
+//     std::string text((text_length - 1) / 4 + 1, '\0');
+//     std::string pattern((pattern_length - 1) / 4 + 1, '\0');
+//     for (int i = 0; i < run_cnt; i++)
+//     {
+//         generate_random_data(&text[0], text_length);
+//         generate_random_data(&pattern[0], pattern_length);
 
-        int retval = eval(
-            text, text_length, pattern, pattern_length,
-            search_function, reference_function, verbose, max_output_cnt);
-        if (retval == -1)
-        {
-            return -1;
-        }
-    }
-    return 0;
-}
+//         int retval = eval(
+//             text, text_length, pattern, pattern_length,
+//             search_function, reference_function, verbose, max_output_cnt);
+//         if (retval == -1)
+//         {
+//             return -1;
+//         }
+//     }
+//     return 0;
+// }
 
 // Returns 0 for success, -1 for failure.
-int eval_with_string_data(
-    const char *text, const char *pattern,
-    StringMatchingFunction search_function,
-    StringMatchingFunction reference_function = nullptr,
-    bool verbose = false, int run_cnt = 1, int max_output_cnt = 100)
-{
-    int text_length = strlen(text);
-    int pattern_length = strlen(pattern);
-    std::string compressed_text((text_length - 1) / 4 + 1, '\0');
-    std::string compressed_pattern((pattern_length - 1) / 4 + 1, '\0');
+// int eval_with_string_data(
+//     const char *text, const char *pattern,
+//     StringMatchingFunction search_function,
+//     StringMatchingFunction reference_function = nullptr,
+//     bool verbose = false, int run_cnt = 1, int max_output_cnt = 100)
+// {
+//     int text_length = strlen(text);
+//     int pattern_length = strlen(pattern);
+//     std::string compressed_text((text_length - 1) / 4 + 1, '\0');
+//     std::string compressed_pattern((pattern_length - 1) / 4 + 1, '\0');
 
-    char_compress(text, text_length, &compressed_text[0]);
-    char_compress(pattern, pattern_length, &compressed_pattern[0]);
+//     char_compress(text, text_length, &compressed_text[0]);
+//     char_compress(pattern, pattern_length, &compressed_pattern[0]);
 
-    for (int i = 0; i < run_cnt; i++)
-    {
-        int retval = eval(
-            compressed_text, text_length,
-            compressed_pattern, pattern_length,
-            search_function, reference_function, verbose, max_output_cnt);
-        if (retval == -1)
-        {
-            return -1;
-        }
-    }
-    return 0;
-}
+//     for (int i = 0; i < run_cnt; i++)
+//     {
+//         int retval = eval(
+//             compressed_text, text_length,
+//             compressed_pattern, pattern_length,
+//             search_function, reference_function, verbose, max_output_cnt);
+//         if (retval == -1)
+//         {
+//             return -1;
+//         }
+//     }
+//     return 0;
+// }
 
 // Note: you should pre-compress the text file into a binary file (using
 // char_compress), and use that binary file as the filename.
