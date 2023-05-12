@@ -5,6 +5,9 @@
 #include "kmp_cpu.hpp"
 #include "state_machine_cpu.hpp"
 
+const int MAX_PATTERN_LENGTH = 100;
+__constant__ int16_t jump_table_constant[(MAX_PATTERN_LENGTH + 1)][4];
+
 static __host__ __device__ int ceil_div(int x, int y)
 {
     return (x - 1) / y + 1;
@@ -12,8 +15,7 @@ static __host__ __device__ int ceil_div(int x, int y)
 
 __device__ static void state_machine_search(
     const char *text, const int text_length, int match_start, int match_end,
-    const int16_t pattern_length, int *output, int *output_cnt, const int max_output_cnt,
-    const int16_t (*jump_table)[4], int text_offset)
+    const int16_t pattern_length, int *output, int *output_cnt, const int max_output_cnt, int text_offset)
 {
     if (match_start < match_end)
     {
@@ -26,7 +28,7 @@ __device__ static void state_machine_search(
             {
                 packed_text = text[i >> 2];
             }
-            curr_state = jump_table[curr_state][packed_text & 0x3];
+            curr_state = jump_table_constant[curr_state][packed_text & 0x3];
             if (curr_state == pattern_length)
             {
                 int outputIdx = atomicAdd(output_cnt, 1);
@@ -43,11 +45,13 @@ __device__ static void state_machine_search(
 __global__ void state_machine_search_zerocopy_kernel(
     const char *text, const int text_length, const int16_t pattern_length,
     int *output, int *output_cnt, const int max_output_cnt,
-    int16_t (*jump_table)[4], int match_length_per_thread)
+    // int16_t (*jump_table)[4],
+    int match_length_per_thread)
 {
     extern __shared__ char shared_memory[];
-    auto shared_jump_table = reinterpret_cast<int16_t(*)[4]>(shared_memory);
-    char *block_text = shared_memory + sizeof(int16_t) * (pattern_length + 1) * 4;
+    // auto shared_jump_table = reinterpret_cast<int16_t(*)[4]>(shared_memory);
+    // char *block_text = shared_memory + sizeof(int16_t) * (pattern_length + 1) * 4;
+    char *block_text = shared_memory;
 
     // The match_length_per_thread is chosen such that block_text_start is always a multiple of 4.
     int block_text_start = (match_length_per_thread - (pattern_length - 1)) * blockIdx.x * blockDim.x;
@@ -61,10 +65,10 @@ __global__ void state_machine_search_zerocopy_kernel(
     int block_text_size = block_text_end_byte - block_text_start_byte;
 
     // Initialize shared memory.
-    for (int i = threadIdx.x; i < 4 * (pattern_length + 1); i += blockDim.x)
-    {
-        shared_jump_table[i >> 2][i & 0x3] = jump_table[i >> 2][i & 0x3];
-    }
+    // for (int i = threadIdx.x; i < 4 * (pattern_length + 1); i += blockDim.x)
+    // {
+    //     shared_jump_table[i >> 2][i & 0x3] = jump_table[i >> 2][i & 0x3];
+    // }
     for (int i = threadIdx.x; i < block_text_size; i += blockDim.x)
     {
         block_text[i] = text[block_text_start_byte + i];
@@ -79,7 +83,8 @@ __global__ void state_machine_search_zerocopy_kernel(
     state_machine_search(
         block_text, block_text_length, match_start, match_end,
         pattern_length, output, output_cnt, max_output_cnt,
-        shared_jump_table, block_text_start);
+        // shared_jump_table,
+        block_text_start);
 }
 
 int state_machine_search_zerocopy(
@@ -111,11 +116,11 @@ int state_machine_search_zerocopy(
     timer_start("Allocating GPU memory");
     char *text_device = nullptr;
     int *output_device;
-    int16_t *jump_table_device;
+    // int16_t *jump_table_device;
     int *output_cnt_device;
     // THROW_IF_ERROR(cudaMalloc((void **)&text_device, text_size));
     THROW_IF_ERROR(cudaMalloc((void **)&output_device, output_size));
-    THROW_IF_ERROR(cudaMalloc((void **)&jump_table_device, jump_table_size));
+    // THROW_IF_ERROR(cudaMalloc((void **)&jump_table_device, jump_table_size));
     THROW_IF_ERROR(cudaMalloc((void **)&output_cnt_device, sizeof(int)));
     timer_stop();
 
@@ -128,7 +133,8 @@ int state_machine_search_zerocopy(
         return 1;
     }
     // THROW_IF_ERROR(cudaHostGetDevicePointer(&text_device, (void *)text, 0));
-    THROW_IF_ERROR(cudaMemcpy(jump_table_device, jump_table.data(), jump_table_size, cudaMemcpyHostToDevice));
+    cudaMemcpyToSymbol(jump_table_constant, jump_table.data(), jump_table_size);
+    // THROW_IF_ERROR(cudaMemcpy(jump_table_device, jump_table.data(), jump_table_size, cudaMemcpyHostToDevice));
     THROW_IF_ERROR(cudaMemset(output_cnt_device, 0, sizeof(int)));
     timer_stop();
 
@@ -137,9 +143,10 @@ int state_machine_search_zerocopy(
     int num_blocks = ceil_div(
         text_length - (pattern_length - 1),
         block_size * (match_length_per_thread - (pattern_length - 1)));
-    int shared_memory_size = jump_table_size + ceil_div(
-                                                   block_size * match_length_per_thread - (block_size - 1) * (pattern_length - 1), 4);
-    // printf("match_length_per_thread = %d\n", match_length_per_thread);
+    int shared_memory_size = ceil_div(block_size * match_length_per_thread - (block_size - 1) * (pattern_length - 1), 4);
+    // int shared_memory_size = jump_table_size + ceil_div(
+    //                                                block_size * match_length_per_thread - (block_size - 1) * (pattern_length - 1), 4);
+    // // printf("match_length_per_thread = %d\n", match_length_per_thread);
     // printf("stored text size = %d\n", shared_memory_size - jump_table_size);
     // printf("shared_memory_size = %d\n", shared_memory_size);
 
@@ -147,7 +154,8 @@ int state_machine_search_zerocopy(
     state_machine_search_zerocopy_kernel<<<num_blocks, block_size, shared_memory_size>>>(
         text_device, text_length, pattern_length,
         output_device, output_cnt_device, max_output_cnt,
-        reinterpret_cast<int16_t(*)[4]>(jump_table_device), match_length_per_thread);
+        // reinterpret_cast<int16_t(*)[4]>(jump_table_device),
+        match_length_per_thread);
     THROW_IF_ERROR(cudaDeviceSynchronize());
     timer_stop();
 
@@ -162,7 +170,7 @@ int state_machine_search_zerocopy(
     timer_start("Freeing GPU memory");
     cudaFree(text_device);
     cudaFree(output_device);
-    cudaFree(jump_table_device);
+    // cudaFree(jump_table_device);
     cudaFree(output_cnt_device);
     timer_stop();
     return output_cnt;
