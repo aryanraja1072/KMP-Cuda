@@ -95,40 +95,50 @@ int state_machine_search_zerocopy(
         exit(1);
     }
 
-    timer_start("Computing state machine jump table on the CPU");
-    std::vector<int16_t> jump_table(4 * (pattern_length + 1));
-    get_fail(pattern, pattern_length, fail);
-    build_state_machine(
-        reinterpret_cast<int16_t(*)[4]>(jump_table.data()),
-        pattern, fail, pattern_length);
-    timer_stop();
-
     // Array sizes, in bytes.
     int text_size = ceil_div(text_length * sizeof(char), 4);
     int jump_table_size = sizeof(int16_t) * (pattern_length + 1) * 4;
     int output_size = sizeof(int) * max_output_cnt;
 
+    // Allocate unified memory.
+    timer_start("Allocating unified memory");
+    int16_t *jump_table = nullptr;
+    // int *output_cnt = nullptr;
+    // THROW_IF_ERROR(cudaMallocManaged((void **)&output_cnt, sizeof(int)));
+    THROW_IF_ERROR(cudaMallocManaged((void **)&jump_table, jump_table_size));
+
+    timer_stop();
+
+    timer_start("Computing state machine jump table on the CPU");
+    // std::vector<int16_t> jump_table(4 * (pattern_length + 1));
+    get_fail(pattern, pattern_length, fail);
+    build_state_machine(
+        reinterpret_cast<int16_t(*)[4]>(jump_table),
+        pattern, fail, pattern_length);
+    timer_stop();
+
     timer_start("Allocating GPU memory");
     char *text_device = nullptr;
     int *output_device;
-    int16_t *jump_table_device;
+    // int16_t *jump_table_device;
     int *output_cnt_device;
     // THROW_IF_ERROR(cudaMalloc((void **)&text_device, text_size));
     THROW_IF_ERROR(cudaMalloc((void **)&output_device, output_size));
-    THROW_IF_ERROR(cudaMalloc((void **)&jump_table_device, jump_table_size));
+    // THROW_IF_ERROR(cudaMalloc((void **)&jump_table_device, jump_table_size));
     THROW_IF_ERROR(cudaMalloc((void **)&output_cnt_device, sizeof(int)));
     timer_stop();
 
     timer_start("Copying inputs to the GPU");
     // THROW_IF_ERROR(cudaMemcpy(text_device, text, text_size, cudaMemcpyHostToDevice));
-    cudaError_t err = cudaHostGetDevicePointer((void **)&text_device, (void *)text, 0);
-    if (err != cudaSuccess)
-    {
-        printf("Error in cudaHostGetDevicePointer: %s\n", cudaGetErrorString(err));
-        return 1;
-    }
+    // cudaError_t err = cudaHostGetDevicePointer((void **)&text_device, (void *)text, 0);
+    // if (err != cudaSuccess)
+    // {
+    //     printf("Error in cudaHostGetDevicePointer: %s\n", cudaGetErrorString(err));
+    //     return 1;
+    // }
+    text_device = (char *)text;
     // THROW_IF_ERROR(cudaHostGetDevicePointer(&text_device, (void *)text, 0));
-    THROW_IF_ERROR(cudaMemcpy(jump_table_device, jump_table.data(), jump_table_size, cudaMemcpyHostToDevice));
+    // THROW_IF_ERROR(cudaMemcpy(jump_table_device, jump_table.data(), jump_table_size, cudaMemcpyHostToDevice));
     THROW_IF_ERROR(cudaMemset(output_cnt_device, 0, sizeof(int)));
     timer_stop();
 
@@ -147,7 +157,7 @@ int state_machine_search_zerocopy(
     state_machine_search_zerocopy_kernel<<<num_blocks, block_size, shared_memory_size>>>(
         text_device, text_length, pattern_length,
         output_device, output_cnt_device, max_output_cnt,
-        reinterpret_cast<int16_t(*)[4]>(jump_table_device), match_length_per_thread);
+        reinterpret_cast<int16_t(*)[4]>(jump_table), match_length_per_thread);
     THROW_IF_ERROR(cudaDeviceSynchronize());
     timer_stop();
 
@@ -160,10 +170,14 @@ int state_machine_search_zerocopy(
     timer_stop();
 
     timer_start("Freeing GPU memory");
-    cudaFree(text_device);
+    // cudaFree(text_device);
     cudaFree(output_device);
-    cudaFree(jump_table_device);
+    // cudaFree(jump_table_device);
     cudaFree(output_cnt_device);
+    timer_stop();
+
+    timer_start("Freeing unified memory");
+    cudaFree(jump_table);
     timer_stop();
     return output_cnt;
 }

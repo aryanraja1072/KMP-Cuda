@@ -258,20 +258,14 @@ int eval_with_dataset_file(
 {
     cudaError_t err = cudaSuccess;
     const int text_size = (text_length - 1) / 4 + 1;
-    // std::string compressed_text((text_length-1)/4+1, '\0');
     char *compressed_text;
-    err = cudaHostAlloc((void **)&compressed_text, text_size, cudaHostAllocMapped);
+    err = cudaMallocManaged((void **)&compressed_text, text_size);
     if (err != cudaSuccess)
     {
-        printf("Error in cudaHostAlloc: %s\n", cudaGetErrorString(err));
+        printf("Error in cudaMallocManaged: %s\n", cudaGetErrorString(err));
         return 1;
     }
-    // err = cudaMemset(compressed_text, 0, text_size);
-    // if (err != cudaSuccess)
-    // {
-    //     printf("Error in cudaMemset: %s\n", cudaGetErrorString(err));
-    //     return 1;
-    // }
+
     std::ifstream in_file(filename, std::ios::binary);
     if (!in_file)
     {
@@ -303,7 +297,7 @@ int eval_with_dataset_file(
             return -1;
         }
     }
-    cudaFreeHost(compressed_text);
+    cudaFree(compressed_text);
     return 0;
 }
 
