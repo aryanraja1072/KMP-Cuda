@@ -15,6 +15,7 @@
 #include "state_machine_coalesced.cuh"
 #include "state_machine_unified.cuh"
 
+
 using StringMatchingFunction = decltype(brute_force_search);
 
 void generate_random_data(char *data, int length)
