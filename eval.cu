@@ -266,6 +266,12 @@ int eval_with_dataset_file(
         return 1;
     }
 
+    err = cudaMemPrefetchAsync((void *)compressed_text, text_size, cudaCpuDeviceId);
+    if (err != cudaSuccess) {
+        printf("Error in cudaMemPrefetch\n");
+        return 1;
+    }
+
     std::ifstream in_file(filename, std::ios::binary);
     if (!in_file)
     {
