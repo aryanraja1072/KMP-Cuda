@@ -6,7 +6,7 @@ int brute_force_search(
     int *output, int max_output_cnt, int16_t *fail
 ) {
     int output_cnt = 0;
-    for (int i = 0; i < text_length - pattern_length; i++) {
+    for (int i = 0; i <= text_length - pattern_length; i++) {
         bool match = true;
         for (int16_t j = 0; j < pattern_length; j++) {
             if (get(text, i+j) != get(pattern, j)) {
