@@ -13,6 +13,7 @@
 #include "kmp_shmem.cuh"
 #include "state_machine_shmem.cuh"
 #include "state_machine_coalesced.cuh"
+#include "state_machine_async_copy.cuh"
 
 using StringMatchingFunction = decltype(brute_force_search);
 
@@ -246,7 +247,7 @@ int main() {
     // Note: for timing GPU kernel, the first few runs should be ignored since
     // there is JIT compiling overhead.
     eval_with_dataset_file(
-        "data_432516.bin", 1000000000, 13, state_machine_search_shmem, nullptr, /*verbose*/false, 6
+        "your_data_file.bin", 1000000000, 13, state_machine_search_async_copy, nullptr, /*verbose*/false, 6
     );
     return 0;
 }
