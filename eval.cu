@@ -15,7 +15,6 @@
 #include "state_machine_coalesced.cuh"
 #include "state_machine_unified.cuh"
 
-
 using StringMatchingFunction = decltype(brute_force_search);
 
 void generate_random_data(char *data, int length)
@@ -136,8 +135,66 @@ int compare_result(
     return 0;
 }
 
-// Returns 0 for success, -1 for failure.
 int eval(
+    const std::string &text, int text_length,
+    std::string &pattern, int16_t pattern_length,
+    StringMatchingFunction search_function,
+    StringMatchingFunction reference_function = nullptr,
+    bool verbose = false, int max_output_cnt = 100)
+{
+    if (verbose)
+    {
+        printf("text = ");
+        print_text_or_pattern(text, text_length);
+        printf("\n");
+
+        printf("pattern = ");
+        print_text_or_pattern(pattern, pattern_length);
+        printf("\n");
+    }
+
+    std::vector<int> output(max_output_cnt);
+    std::vector<int16_t> fail(pattern_length + 1);
+
+    auto start = std::chrono::steady_clock::now();
+    int cnt = search_function(
+        text.data(), text_length, pattern.data(), pattern_length,
+        output.data(), output.size(), fail.data());
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double, std::milli> diff = end - start;
+    printf("Search function takes %lf ms.\n", diff.count());
+
+    if (verbose)
+    {
+        printf("test function output: ");
+        print_output(output, cnt);
+    }
+
+    if (reference_function != nullptr)
+    {
+        std::vector<int> ref_output(max_output_cnt);
+
+        auto start = std::chrono::steady_clock::now();
+        int ref_cnt = reference_function(
+            text.data(), text_length, pattern.data(), pattern_length,
+            ref_output.data(), ref_output.size(), fail.data());
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double, std::milli> diff = end - start;
+        printf("Reference function takes %lf ms.\n", diff.count());
+
+        if (verbose)
+        {
+            printf("reference function output: ");
+            print_output(ref_output, ref_cnt);
+        }
+
+        return compare_result(output, cnt, ref_output, ref_cnt, max_output_cnt);
+    }
+    return 0;
+}
+
+// Returns 0 for success, -1 for failure.
+int eval_ptr_input(
     const char *text, int text_length,
     std::string &pattern, int16_t pattern_length,
     StringMatchingFunction search_function,
@@ -257,6 +314,109 @@ int eval_with_dataset_file(
     StringMatchingFunction reference_function = nullptr,
     bool verbose = false, int run_cnt = 1, int max_output_cnt = 100)
 {
+    std::string compressed_text((text_length - 1) / 4 + 1, '\0');
+
+    std::ifstream in_file(filename, std::ios::binary);
+    if (!in_file)
+    {
+        printf("Error opening file %s\n", filename);
+        return 1;
+    }
+    in_file.read(&compressed_text[0], compressed_text.size());
+
+    int actual_bytes_read = in_file.gcount();
+    if (actual_bytes_read < compressed_text.size())
+    {
+        printf(
+            "Not enough bytes in the data file, expected %d bytes but only got %d bytes\n",
+            static_cast<int>(compressed_text.size()), actual_bytes_read);
+        return 1;
+    }
+
+    std::string compressed_pattern((pattern_length - 1) / 4 + 1, '\0');
+    for (int i = 0; i < run_cnt; i++)
+    {
+        generate_random_data(&compressed_pattern[0], pattern_length);
+
+        int retval = eval(
+            compressed_text, text_length,
+            compressed_pattern, pattern_length,
+            search_function, reference_function, verbose, max_output_cnt);
+        if (retval == -1)
+        {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+// Note: you should pre-compress the text file into a binary file (using
+// char_compress), and use that binary file as the filename.
+int eval_with_dataset_file_zerocopy(
+    const char *filename, int text_length, int pattern_length,
+    StringMatchingFunction search_function,
+    StringMatchingFunction reference_function = nullptr,
+    bool verbose = false, int run_cnt = 1, int max_output_cnt = 100)
+{
+    cudaError_t err = cudaSuccess;
+    const int text_size = (text_length - 1) / 4 + 1;
+    // std::string compressed_text((text_length-1)/4+1, '\0');
+    char *compressed_text;
+    err = cudaHostAlloc((void **)&compressed_text, text_size, cudaHostAllocMapped);
+    if (err != cudaSuccess)
+    {
+        printf("Error in cudaHostAlloc: %s\n", cudaGetErrorString(err));
+        return 1;
+    }
+    // err = cudaMemset(compressed_text, 0, text_size);
+    // if (err != cudaSuccess)
+    // {
+    //     printf("Error in cudaMemset: %s\n", cudaGetErrorString(err));
+    //     return 1;
+    // }
+    std::ifstream in_file(filename, std::ios::binary);
+    if (!in_file)
+    {
+        printf("Error opening file %s\n", filename);
+        return 1;
+    }
+    in_file.read(&compressed_text[0], text_size);
+
+    int actual_bytes_read = in_file.gcount();
+    if (actual_bytes_read < text_size)
+    {
+        printf(
+            "Not enough bytes in the data file, expected %d bytes but only got %d bytes\n",
+            static_cast<int>(text_size), actual_bytes_read);
+        return 1;
+    }
+
+    std::string compressed_pattern((pattern_length - 1) / 4 + 1, '\0');
+    for (int i = 0; i < run_cnt; i++)
+    {
+        generate_random_data(&compressed_pattern[0], pattern_length);
+
+        int retval = eval_ptr_input(
+            compressed_text, text_length,
+            compressed_pattern, pattern_length,
+            search_function, reference_function, verbose, max_output_cnt);
+        if (retval == -1)
+        {
+            return -1;
+        }
+    }
+    cudaFreeHost(compressed_text);
+    return 0;
+}
+
+// Note: you should pre-compress the text file into a binary file (using
+// char_compress), and use that binary file as the filename.
+int eval_with_dataset_file_unified(
+    const char *filename, int text_length, int pattern_length,
+    StringMatchingFunction search_function,
+    StringMatchingFunction reference_function = nullptr,
+    bool verbose = false, int run_cnt = 1, int max_output_cnt = 100)
+{
     cudaError_t err = cudaSuccess;
     const int text_size = (text_length - 1) / 4 + 1;
     char *compressed_text;
@@ -296,7 +456,7 @@ int eval_with_dataset_file(
     {
         generate_random_data(&compressed_pattern[0], pattern_length);
 
-        int retval = eval(
+        int retval = eval_ptr_input(
             compressed_text, text_length,
             compressed_pattern, pattern_length,
             search_function, reference_function, verbose, max_output_cnt);
@@ -313,7 +473,7 @@ int main()
 {
     // Note: for timing GPU kernel, the first few runs should be ignored since
     // there is JIT compiling overhead.
-    eval_with_dataset_file(
+    eval_with_dataset_file_unified(
         "data.bin", 1000000000, 13, state_machine_search_unified, nullptr, /*verbose*/ false, 6
 
     );
