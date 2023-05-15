@@ -4,6 +4,7 @@
 #include "common/utils.hpp"
 #include "kmp_cpu.hpp"
 #include "state_machine_cpu.hpp"
+#include "state_machine_shmem.cuh"
 
 static __host__ __device__ int ceil_div(int x, int y) {
     return (x - 1) / y + 1;
@@ -34,7 +35,7 @@ __device__ static void state_machine_search(
     }
 }
 
-__global__ void state_machine_search_coalesced_kernel(
+__global__ void state_machine_search_async_copy_kernel(
     const char *text, const int text_length, const int16_t pattern_length,
     int *output, int *output_cnt, const int max_output_cnt,
     int16_t (*jump_table)[4], int match_length_per_thread
@@ -122,7 +123,7 @@ int state_machine_search_async_copy(
         block_size * match_length_per_thread - (block_size - 1) * (pattern_length - 1), 4
     );
 
-    state_machine_search_coalesced_kernel<<<num_blocks, block_size, shared_memory_size>>>(
+    state_machine_search_async_copy_kernel<<<num_blocks, block_size, shared_memory_size>>>(
         text_device, text_length, pattern_length,
         output_device, output_cnt_device, max_output_cnt,
         reinterpret_cast<int16_t (*)[4]>(jump_table_device), match_length_per_thread
