@@ -40,7 +40,7 @@ __device__ static void state_machine_search(
     }
 }
 
-__global__ void state_machine_search_zerocopy_kernel(
+__global__ void state_machine_search_unified_kernel(
     const char *text, const int text_length, const int16_t pattern_length,
     int *output, int *output_cnt, const int max_output_cnt,
     int16_t (*jump_table)[4], int match_length_per_thread)
@@ -82,7 +82,7 @@ __global__ void state_machine_search_zerocopy_kernel(
         shared_jump_table, block_text_start);
 }
 
-int state_machine_search_zerocopy(
+int state_machine_search_unified(
     const char *text, int text_length, const char *pattern, int16_t pattern_length,
     int *output, int max_output_cnt, int16_t *fail)
 {
@@ -154,7 +154,7 @@ int state_machine_search_zerocopy(
     // printf("shared_memory_size = %d\n", shared_memory_size);
 
     timer_start("Performing state machine search on the GPU");
-    state_machine_search_zerocopy_kernel<<<num_blocks, block_size, shared_memory_size>>>(
+    state_machine_search_unified_kernel<<<num_blocks, block_size, shared_memory_size>>>(
         text_device, text_length, pattern_length,
         output_device, output_cnt_device, max_output_cnt,
         reinterpret_cast<int16_t(*)[4]>(jump_table), match_length_per_thread);

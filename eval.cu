@@ -13,7 +13,7 @@
 #include "kmp_shmem.cuh"
 #include "state_machine_shmem.cuh"
 #include "state_machine_coalesced.cuh"
-#include "state_machine_zero.cuh"
+#include "state_machine_unified.cuh"
 
 using StringMatchingFunction = decltype(brute_force_search);
 
@@ -267,7 +267,8 @@ int eval_with_dataset_file(
     }
 
     err = cudaMemPrefetchAsync((void *)compressed_text, text_size, cudaCpuDeviceId);
-    if (err != cudaSuccess) {
+    if (err != cudaSuccess)
+    {
         printf("Error in cudaMemPrefetch\n");
         return 1;
     }
@@ -312,7 +313,7 @@ int main()
     // Note: for timing GPU kernel, the first few runs should be ignored since
     // there is JIT compiling overhead.
     eval_with_dataset_file(
-        "data.bin", 1000000000, 13, state_machine_search_zerocopy, nullptr, /*verbose*/ false, 6
+        "data.bin", 1000000000, 13, state_machine_search_unified, nullptr, /*verbose*/ false, 6
 
     );
     return 0;
