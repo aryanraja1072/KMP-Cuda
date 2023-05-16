@@ -22,8 +22,8 @@ static __host__ __device__ inline char get(const char *arr, IdxType idx) {
 
 __device__ static void state_machine_search(
     const char *text, const int text_length, int match_start, int match_end,
-    const int16_t pattern_length, int *output, int *output_cnt, const int max_output_cnt,
-    const int16_t (*jump_table)[4]
+    const int pattern_length, int *output, int *output_cnt, const int max_output_cnt,
+    const int (*jump_table)[4]
 ) {
     if (match_start < match_end) {
         int i = match_start;
@@ -46,10 +46,10 @@ __device__ static void state_machine_search(
 }
 
 __global__ void state_machine_search_shmem_kernel(
-    const char *text, const int text_length, const int16_t pattern_length,
-    int *output, int *output_cnt, const int max_output_cnt, int16_t (*jump_table)[4]
+    const char *text, const int text_length, const int pattern_length,
+    int *output, int *output_cnt, const int max_output_cnt, int (*jump_table)[4]
 ) {
-    extern __shared__ int16_t shared_jump_table[][4];
+    extern __shared__ int shared_jump_table[][4];
 
     int global_index = blockIdx.x * blockDim.x + threadIdx.x;
     int match_start = (match_length_per_thread - (pattern_length - 1)) * global_index;
@@ -70,8 +70,8 @@ __global__ void state_machine_search_shmem_kernel(
 }
 
 int state_machine_search_shmem(
-    const char *text, int text_length, const char *pattern, int16_t pattern_length,
-    int *output, int max_output_cnt, int16_t *fail
+    const char *text, int text_length, const char *pattern, int pattern_length,
+    int *output, int max_output_cnt, int *fail
 ) {
     if (match_length_per_thread <= pattern_length) {
         fprintf(stderr, "match_length_per_thread should be larger than pattern_length");
@@ -79,23 +79,23 @@ int state_machine_search_shmem(
     }
 
     timer_start("Computing state machine jump table on the CPU");
-    std::vector<int16_t> jump_table(4 * (pattern_length+1));
+    std::vector<int> jump_table(4 * (pattern_length+1));
     get_fail(pattern, pattern_length, fail);
     build_state_machine(
-        reinterpret_cast<int16_t (*)[4]>(jump_table.data()),
+        reinterpret_cast<int (*)[4]>(jump_table.data()),
         pattern, fail, pattern_length
     );
     timer_stop();
 
     // Array sizes, in bytes.
     int text_size = ceil_div(text_length * sizeof(char), 4);
-    int jump_table_size = sizeof(int16_t) * (pattern_length + 1) * 4;
+    int jump_table_size = sizeof(int) * (pattern_length + 1) * 4;
     int output_size = sizeof(int) * max_output_cnt;
 
     timer_start("Allocating GPU memory");
     char *text_device;
     int *output_device;
-    int16_t *jump_table_device;
+    int *jump_table_device;
     int *output_cnt_device;
     THROW_IF_ERROR(cudaMalloc((void **)&text_device, text_size));
     THROW_IF_ERROR(cudaMalloc((void **)&output_device, output_size));
@@ -119,7 +119,7 @@ int state_machine_search_shmem(
     timer_start("Performing state machine search on the GPU");
     state_machine_search_shmem_kernel<<<num_blocks, block_size, jump_table_size>>>(
         text_device, text_length, pattern_length,
-        output_device, output_cnt_device, max_output_cnt, reinterpret_cast<int16_t (*)[4]>(jump_table_device)
+        output_device, output_cnt_device, max_output_cnt, reinterpret_cast<int (*)[4]>(jump_table_device)
     );
     THROW_IF_ERROR(cudaDeviceSynchronize());
     timer_stop();

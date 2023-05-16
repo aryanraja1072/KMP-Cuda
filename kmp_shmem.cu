@@ -24,12 +24,12 @@ static __host__ __device__ inline char get(const char *arr, IdxType idx) {
 
 __device__ void KMP_search(
     const char *text, int text_start, int text_end,
-    const char *pattern, int16_t pattern_length,
+    const char *pattern, int pattern_length,
     int *output, int *output_cnt, int max_output_cnt,
-    int16_t *fail
+    int *fail
 ) {
     int i = text_start;
-    int16_t j = 0;
+    int j = 0;
     while (i < text_end) {
         if (get(text, i) == get(pattern, j)) {
             i++; j++;
@@ -55,14 +55,14 @@ __device__ void KMP_search(
 }
 
 __global__ void KMP_search_shmem_kernel(
-    const char *text, int text_length, const char *pattern, int16_t pattern_length,
-    int *output, int *output_cnt, int max_output_cnt, int16_t *fail
+    const char *text, int text_length, const char *pattern, int pattern_length,
+    int *output, int *output_cnt, int max_output_cnt, int *fail
 ) {
     extern __shared__ char shared_memory[];
-    int16_t *shared_fail = reinterpret_cast<int16_t *>(shared_memory);
+    int *shared_fail = reinterpret_cast<int *>(shared_memory);
     char *shared_pattern = (
         shared_memory
-        + sizeof(int16_t) * (pattern_length + 1)
+        + sizeof(int) * (pattern_length + 1)
     );
 
     int global_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -87,8 +87,8 @@ __global__ void KMP_search_shmem_kernel(
 }
 
 int KMP_search_shmem(
-    const char *text, int text_length, const char *pattern, int16_t pattern_length,
-    int *output, int max_output_cnt, int16_t *fail
+    const char *text, int text_length, const char *pattern, int pattern_length,
+    int *output, int max_output_cnt, int *fail
 ) {
     if (match_length_per_thread <= pattern_length) {
         LOG(error, "match_length_per_thread should be larger than pattern_length");
@@ -99,14 +99,14 @@ int KMP_search_shmem(
     // Pad text and pattern to make their sizes a multiple of sizeof(int).
     int text_size = round_up_to_multiple(ceil_div(text_length * sizeof(char), 4), sizeof(int));
     int pattern_size = round_up_to_multiple(ceil_div(pattern_length * sizeof(char), 4), sizeof(int));
-    int fail_size = sizeof(int16_t) * (pattern_length + 1);
+    int fail_size = sizeof(int) * (pattern_length + 1);
     int output_size = sizeof(int) * max_output_cnt;
 
     timer_start("Allocating GPU memory");
     char *text_device;
     char *pattern_device;
     int *output_device;
-    int16_t *fail_device;
+    int *fail_device;
     int *output_cnt_device;
     THROW_IF_ERROR(cudaMalloc((void **)&text_device, text_size));
     THROW_IF_ERROR(cudaMalloc((void **)&pattern_device, pattern_size));
