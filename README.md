@@ -1,4 +1,5 @@
 # KMP-Cuda
+**Our final report is in the Report.pdf**
 
 In this project we have tried to optimize the KMP algorithm on the GPU using CUDA. We have implemented the optimizations of two algorithms: the naive KMP algorithm and the DFA algorithm. We have also explored three optimizations that focus on improving the total runtime. The best kernel we have got is 2.5x faster than the baseline kernel, utilizing memory coalescing. We have also cut down the total execution time by a factor of 1.58 using unified memory.
 <!-- 
