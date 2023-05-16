@@ -11,8 +11,8 @@ static __host__ __device__ int ceil_div(int x, int y) {
 
 __device__ static void state_machine_search(
     const char *text, const int text_length, int match_start, int match_end,
-    const int16_t pattern_length, int *output, int *output_cnt, const int max_output_cnt,
-    const int16_t (*jump_table)[4], int text_offset
+    const int pattern_length, int *output, int *output_cnt, const int max_output_cnt,
+    const int (*jump_table)[4], int text_offset
 ) {
     if (match_start < match_end) {
         int i = match_start;
@@ -35,13 +35,13 @@ __device__ static void state_machine_search(
 }
 
 __global__ void state_machine_search_coalesced_kernel(
-    const char *text, const int text_length, const int16_t pattern_length,
+    const char *text, const int text_length, const int pattern_length,
     int *output, int *output_cnt, const int max_output_cnt,
-    int16_t (*jump_table)[4], int match_length_per_thread
+    int (*jump_table)[4], int match_length_per_thread
 ) {
     extern __shared__ char shared_memory[];
-    auto shared_jump_table = reinterpret_cast<int16_t (*)[4]>(shared_memory);
-    char *block_text = shared_memory + sizeof(int16_t) * (pattern_length + 1) * 4;
+    auto shared_jump_table = reinterpret_cast<int (*)[4]>(shared_memory);
+    char *block_text = shared_memory + sizeof(int) * (pattern_length + 1) * 4;
 
     // The match_length_per_thread is chosen such that block_text_start is always a multiple of 4.
     int block_text_start = (match_length_per_thread - (pattern_length - 1)) * blockIdx.x * blockDim.x;
@@ -76,8 +76,8 @@ __global__ void state_machine_search_coalesced_kernel(
 }
 
 int state_machine_search_coalesced(
-    const char *text, int text_length, const char *pattern, int16_t pattern_length,
-    int *output, int max_output_cnt, int16_t *fail
+    const char *text, int text_length, const char *pattern, int pattern_length,
+    int *output, int max_output_cnt, int *fail
 ) {
     // This value should be several times larger than pattern_length.
     static constexpr int try_match_length_per_thread = 128;
@@ -88,23 +88,23 @@ int state_machine_search_coalesced(
     }
 
     timer_start("Computing state machine jump table on the CPU");
-    std::vector<int16_t> jump_table(4 * (pattern_length+1));
+    std::vector<int> jump_table(4 * (pattern_length+1));
     get_fail(pattern, pattern_length, fail);
     build_state_machine(
-        reinterpret_cast<int16_t (*)[4]>(jump_table.data()),
+        reinterpret_cast<int (*)[4]>(jump_table.data()),
         pattern, fail, pattern_length
     );
     timer_stop();
 
     // Array sizes, in bytes.
     int text_size = ceil_div(text_length * sizeof(char), 4);
-    int jump_table_size = sizeof(int16_t) * (pattern_length + 1) * 4;
+    int jump_table_size = sizeof(int) * (pattern_length + 1) * 4;
     int output_size = sizeof(int) * max_output_cnt;
 
     timer_start("Allocating GPU memory");
     char *text_device;
     int *output_device;
-    int16_t *jump_table_device;
+    int *jump_table_device;
     int *output_cnt_device;
     THROW_IF_ERROR(cudaMalloc((void **)&text_device, text_size));
     THROW_IF_ERROR(cudaMalloc((void **)&output_device, output_size));
@@ -135,7 +135,7 @@ int state_machine_search_coalesced(
     state_machine_search_coalesced_kernel<<<num_blocks, block_size, shared_memory_size>>>(
         text_device, text_length, pattern_length,
         output_device, output_cnt_device, max_output_cnt,
-        reinterpret_cast<int16_t (*)[4]>(jump_table_device), match_length_per_thread
+        reinterpret_cast<int (*)[4]>(jump_table_device), match_length_per_thread
     );
     THROW_IF_ERROR(cudaDeviceSynchronize());
     timer_stop();

@@ -3,10 +3,10 @@
 #include "char_compress.hpp"
 
 void build_state_machine(
-    int16_t (*state_machine)[4],
-    const char *pattern, const int16_t *fail, int16_t pattern_length
+    int (*state_machine)[4],
+    const char *pattern, const int *fail, int pattern_length
 ) {
-    for (int16_t i = 0; i <= pattern_length; i++) {
+    for (int i = 0; i <= pattern_length; i++) {
         for (char j = 0; j < 4; j++) {
             if (i < pattern_length && get(pattern, i) == j) {
                 // Matches, go to the next state.
@@ -24,15 +24,15 @@ void build_state_machine(
 }
 
 int state_machine_search(
-    const char *text, int text_length, const char *pattern, int16_t pattern_length,
-    int *output, int max_output_cnt, int16_t *fail
+    const char *text, int text_length, const char *pattern, int pattern_length,
+    int *output, int max_output_cnt, int *fail
 ) {
     get_fail(pattern, pattern_length, fail);
 
-    auto state_machine = new int16_t[pattern_length+1][4];
+    auto state_machine = new int[pattern_length+1][4];
     build_state_machine(state_machine, pattern, fail, pattern_length);
 
-    int16_t curr_state = 0;
+    int curr_state = 0;
     int output_cnt = 0;
     for (int i = 0; i < text_length; i += 4) {
         char text_packed = text[i >> 2];

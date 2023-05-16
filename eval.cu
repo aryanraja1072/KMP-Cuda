@@ -196,7 +196,7 @@ int eval(
 // Returns 0 for success, -1 for failure.
 int eval_ptr_input(
     const char *text, int text_length,
-    std::string &pattern, int16_t pattern_length,
+    std::string &pattern, int pattern_length,
     StringMatchingFunction search_function,
     StringMatchingFunction reference_function = nullptr,
     bool verbose = false, int max_output_cnt = 100)
@@ -213,7 +213,7 @@ int eval_ptr_input(
     }
 
     std::vector<int> output(max_output_cnt);
-    std::vector<int16_t> fail(pattern_length + 1);
+    std::vector<int> fail(pattern_length + 1);
 
     auto start = std::chrono::steady_clock::now();
     int cnt = search_function(

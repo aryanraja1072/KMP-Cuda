@@ -1,10 +1,10 @@
 #include "kmp_cpu.hpp"
 #include "char_compress.hpp"
 
-void get_fail(const char *pattern, int16_t pattern_length, int16_t *fail) {
-    int16_t candidate = 0;
+void get_fail(const char *pattern, int pattern_length, int *fail) {
+    int candidate = 0;
     fail[0] = -1;
-    for (int16_t pos = 1; pos < pattern_length; pos++, candidate++) {
+    for (int pos = 1; pos < pattern_length; pos++, candidate++) {
         char com_pos = get(pattern, pos);
         char com_cand = get(pattern, candidate);
         if (com_pos == com_cand) {
@@ -21,8 +21,8 @@ void get_fail(const char *pattern, int16_t pattern_length, int16_t *fail) {
 }
 
 int KMP_search(
-    const char *text, int text_length, const char *pattern, int16_t pattern_length,
-    int *output, int max_output_cnt, int16_t *fail
+    const char *text, int text_length, const char *pattern, int pattern_length,
+    int *output, int max_output_cnt, int *fail
 ) {
     get_fail(pattern, pattern_length, fail);
     int i = 0, j = 0;
